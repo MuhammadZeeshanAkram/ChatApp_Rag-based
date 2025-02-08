@@ -82,7 +82,7 @@ with st.sidebar:
     st.header("⚙️ Configuration")
     selected_model = st.selectbox(
         "Choose Model",
-        ["deepseek-r1:1.5b", "deepseek-r1:3b"],
+        ["deepseek-r1:1.5b", "deepseek-r1:8b" , "deepseek-r1:14b"],
         index=0
     )
     
@@ -119,6 +119,9 @@ if "message_log" not in st.session_state:
         {"role": "ai", "content": "Hi Shanuu! I'm your coding assistant. How can I help you today?"}
     ]
 
+#chat container
+chat_container=st.container()
+
 #Display chat messages
 with chat_container:
     for message in st.session_state.message_log:
@@ -126,8 +129,33 @@ with chat_container:
             st.write(message["content"])
 
 #Chat input
-prompt_chain=st.chat_input("Enter you coding questions here...")
+user_query=st.chat_input("Enter you coding questions here...")
 
 def generate_response(prompt_chain):
     processing_pipeline=prompt_chain | llm_engine | StrOutputParser()
     return processing_pipeline.invoke({})
+
+def build_prompt_chain():
+    prompt_sequence=[system_prompt]
+    for msg in st.session_state.message_log:
+        if msg["role"] == "user":
+            prompt_sequence.append(HumanMessagePromptTemplate.from_template(msg["content"]))
+        elif msg["role"] == "ai":
+            prompt_sequence.append(AIMessagePromptTemplate.from_template(msg["content"]))
+    return ChatPromptTemplate.from_messages(prompt_sequence)
+
+
+if user_query:
+    #Add user message to log
+    st.session_state.message_log.append({"role": "user", "content": user_query})
+
+    #generate AI response
+    with st.spinner("Processing..."):
+        prompt_chain=build_prompt_chain()
+        ai_response=generate_response(prompt_chain)
+
+    #Add AI response to log
+    st.session_state.message_log.append({"role": "ai", "content": ai_response})
+
+    #return to update chat display
+    st.rerun()
